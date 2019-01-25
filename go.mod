@@ -1,1 +1,1 @@
-module gracefully
+module github.com/wojnosystems/gracefully
