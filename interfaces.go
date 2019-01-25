@@ -1,14 +1,12 @@
 package gracefully
 
-// SignalStatus is how we tell the service what to do after some sort of interrupt is handled
+// GracefulAction is how we tell the service what to do after some sort of interrupt is handled
 type GracefulAction uint8
 
 const (
-	// GracefulContinue : ServiceManager should go back to selecting on all channels and do nothing to alter the service manager. You usually want this
-	GracefulContinue GracefulAction = iota
-	// GracefulRestart : signal to the iteration/ServiceManager that it's time to clean up to restart
-	GracefulRestart
-	// GracefulStop : signal to the iteration/ServiceManager that it's time to stop
+	// GracefulRestart : signal to the iteration/ServiceManager that it's time to clean up and then restart. ServiceManager's Wait will continue to remain blocked, but the function passed to Start or Run will re-enter from the top
+	GracefulRestart GracefulAction = iota
+	// GracefulStop : signal to the iteration/ServiceManager that it's time to stop. Wait/Run will eventually unblock after the internal GoRoutine has ended
 	GracefulStop
 )
 
@@ -16,11 +14,19 @@ const (
 type SignalControl func(*ServiceManager) GracefulAction
 
 type SignalSelecter interface {
-	// Select will be called for this signaler when the ServiceManager is in the Wait state. This channel will never be written to by the receiver, so a read-only channel is returned, but you'll need to keep that channel and push something onto it when you want to trigger the service manager to do something
+	// Select will be called for this signaler when the ServiceManager is in the Wait state.
+	// This channel will never be written to by the receiver, so a read-only channel is returned, but you'll need to
+	// keep that channel and push something onto it when you want to trigger the service manager to do something
+	// When it's time to wake up and take action (because a signal was received), you add a reference to a SignalControl,
+	// SignalControl is a function that takes a reference to the ServiceManager, and returns the GracefulAction the ServiceManager should take
+	//
 	Select() <-chan SignalControl
 
 	// Cancel stops the Sigaler from listening to signals. This prevents any internal goroutines used from leaking.
-	// This call should not block and return as quickly as possible. This should signal to your SignalSelecter that the goroutine you started, if any, needs to end. There is no signal to the parent that the goroutine completed and there is no expectation that any information needs to flow to the ServiceManager
+	// This call should not block and return as quickly as possible. When called, this should signal to your
+	// SignalSelecter that the goroutine(s) you started, if any, need to end.
+	// There is no signal to the parent that the goroutine completed and there is no expectation that any information needs to flow to the ServiceManager
+	// This is here to prevent leaking any GoRoutines you may have started when you created your SignalSelecter
 	Cancel()
 }
 

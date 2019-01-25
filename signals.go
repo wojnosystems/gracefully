@@ -7,17 +7,21 @@ import (
 )
 
 // Signals is how we configured the operating system signals for our Gracefully service manager
-// Do not instantiate yourself, call: NewSignals or NewDefaultSignals
+// Do not instantiate yourself, call: NewSignals or DefaultSignals
 type Signals struct {
+	// signalChan is where to put incoming signals from the OS
 	signalChan chan os.Signal
-	actions    map[os.Signal]GracefulAction
+	// actions is what the ServiceManager should do when a signal is received
+	actions map[os.Signal]GracefulAction
 	BaseSignaler
 }
 
 // NewSignals creates a new SignalSelecter that listens for operating system signals that you specify, such as SIGINT, SIGHUP, SIGTERM, etc.
 func NewSignals(signalsAndActions map[os.Signal]GracefulAction) *Signals {
 	s := &Signals{
-		signalChan:   make(chan os.Signal, 2),
+		// opting for size 2 to ensure that the os.Notify does not block
+		signalChan: make(chan os.Signal, 2),
+		// actions allows users to specify how they want to handle signals
 		actions:      signalsAndActions,
 		BaseSignaler: NewBaseSignaler(),
 	}
@@ -30,6 +34,10 @@ func NewSignals(signalsAndActions map[os.Signal]GracefulAction) *Signals {
 
 	// Listen for those signals
 	signal.Notify(s.signalChan, sigs...)
+
+	// Listen for signals
+	// This goroutine will wait for signals to come in from the OS, look up what to do from the map then signal to the
+	// ServiceManager what it needs to do.
 	go func(routineSig *Signals) {
 		for {
 			select {
@@ -47,14 +55,17 @@ func NewSignals(signalsAndActions map[os.Signal]GracefulAction) *Signals {
 	return s
 }
 
-// NewDefaultSignals creates a new Signals SignalSelecter pre-configured with:
+// DefaultSignals creates a new Signals SignalSelecter pre-configured with:
 // SIGHUP = GracefulRestart
 // SIGINT = GracefulStop
 // SIGTERM = GracefulStop
-func NewDefaultSignals() *Signals {
-	commonSignals := make(map[os.Signal]GracefulAction)
-	commonSignals[os.Interrupt] = GracefulStop
-	commonSignals[syscall.SIGTERM] = GracefulStop
-	commonSignals[syscall.SIGHUP] = GracefulRestart
-	return NewSignals(commonSignals)
+func DefaultSignals() *Signals {
+	return NewSignals(defaultSignals)
+}
+
+// defaultSignals specifies a map of the default actions most services take when a signal arrives
+var defaultSignals = map[os.Signal]GracefulAction{
+	os.Interrupt:    GracefulStop,
+	syscall.SIGTERM: GracefulStop,
+	syscall.SIGHUP:  GracefulRestart,
 }
