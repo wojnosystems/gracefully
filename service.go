@@ -90,7 +90,7 @@ func (s *ServiceManager) AddSignaler(si SignalSelecter) {
 // Errors returned cause ServiceManager to exit and that error will be returned by Wait/Run
 //
 // Once routine exits, you do not have control over ServiceManager. ServiceManager will restart it if it is told to do so, or it will not if told to stop
-func (s *ServiceManager) Start(routine func(iCtx context.Context) error) {
+func (s *ServiceManager) Start(routine func(ctx context.Context) error) {
 	var subCtx context.Context
 	s.mu.Lock()
 	subCtx, s.cancelFunc = context.WithCancel(context.Background())
@@ -279,7 +279,7 @@ func (s *ServiceManager) buildSelectCases() []reflect.SelectCase {
 }
 
 // Run is like calling Start + Wait together
-func (s *ServiceManager) Run(routine func(iCtx context.Context) error) (err error) {
+func (s *ServiceManager) Run(routine func(ctx context.Context) error) (err error) {
 	s.Start(routine)
 	return s.Wait()
 }

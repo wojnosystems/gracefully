@@ -13,13 +13,16 @@ require github.com/wojnosystems/gracefully v1.0.0
 ```go
 package main
 
-import "github.com/wojnosystems/gracefully"
+import (
+	"context"
+	"github.com/wojnosystems/gracefully"
+)
 
 func main() {
     // Service Setup
     sm := gracefully.New()
     sm.AddSignaler(gracefully.DefaultSignals())
-    err := sm.Run(func(iCtx context.Context) error {
+    err := sm.Run(func(ctx context.Context) error {
         // Do work
         // put your code here
         <-ctx.Done()
